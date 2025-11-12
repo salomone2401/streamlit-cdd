@@ -40,7 +40,6 @@ except Exception as e:
 model_utils.load_all()  
 
 models_dict = model_utils.get_models()
-X_train, y_train = model_utils.get_training_data()
 scaler, feature_names = model_utils.get_scaler_and_features()
 
 import traceback
@@ -108,7 +107,7 @@ elif opcion == "EDA":
 elif opcion == "Machine Learning Models":
     log("Entrando en ML")
     st.write("🧩 Entrando en Machine Learning Models...")
-    safe_render(lambda: machine_learning.render(models_dict, X_train, y_train), name="Machine Learning Models")
+    safe_render(lambda: machine_learning.render(models_dict), name="Machine Learning Models")
 
 elif opcion == "Predicción":
     log("Entrando en Predicción")
