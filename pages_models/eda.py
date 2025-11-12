@@ -30,10 +30,8 @@ def render():
         return
 
     # --- Sidebar: filtros globales ---
-    st.sidebar.header("⚙️ Configuración general")
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
     categorical_cols = df.select_dtypes(exclude=np.number).columns.tolist()
-
 
     tab1, tab2, tab3, tab4 = st.tabs([
         "Distribución",
@@ -42,6 +40,7 @@ def render():
         "Mapa de Densidad"
     ])
 
+    # --- TAB 1: Distribución ---
     with tab1:
         st.subheader("📈 Distribución de una variable")
         variable = st.selectbox("Selecciona la variable numérica:", numeric_cols, index=0)
@@ -52,8 +51,10 @@ def render():
             alt.X(f"{variable}:Q", bin=alt.Bin(maxbins=bins), title=variable.capitalize()),
             y="count():Q"
         ).properties(width=700, height=400)
-        st.altair_chart(chart1, width="stretch")
 
+        st.altair_chart(chart1, use_container_width=True)
+
+    # --- TAB 2: Comparaciones ---
     with tab2:
         st.subheader("🎵 Comparación por Categoria")
         cat_var = st.selectbox("Categoria (eje X):", categorical_cols, index=0)
@@ -73,7 +74,7 @@ def render():
                 y=alt.Y(f"mean({num_var}):Q", title=f"Promedio de {num_var}")
             )
 
-        st.altair_chart(chart2.properties(width=700, height=400), width="stretch")
+        st.altair_chart(chart2.properties(width=700, height=400), use_container_width=True)
 
     # --- TAB 3: Correlaciones ---
     with tab3:
@@ -91,8 +92,10 @@ def render():
             color=alt.Color(f"{color_var}:Q", scale=alt.Scale(scheme="viridis")),
             tooltip=[x_axis, y_axis, color_var]
         ).properties(width=700, height=450).interactive()
-        st.altair_chart(chart3, width="stretch")
 
+        st.altair_chart(chart3, use_container_width=True)
+
+    # --- TAB 4: Mapa de Densidad ---
     with tab4:
         st.subheader("🌊 Mapa de Densidad 2D")
         st.caption("Visualiza regiones con alta concentración de canciones.")
@@ -115,7 +118,8 @@ def render():
             )
             chart4 = chart4 + points
 
-        st.altair_chart(chart4.interactive(), width="stretch")
+        st.altair_chart(chart4.interactive(), use_container_width=True)
 
+    # --- Vista previa de datos ---
     with st.expander("👀 Vista previa de datos"):
         st.dataframe(df.head(10))

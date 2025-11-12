@@ -1,14 +1,22 @@
 import streamlit as st
-from pages import eda, machine_learning, prediction
+from pages_models import eda, machine_learning, prediction
 
 import sys
 import os
 
 import warnings
+
+st.set_page_config(
+    page_title="Proyecto Popularidad",
+    page_icon="🎧",
+    layout="wide"
+)
+
+
 warnings.filterwarnings("ignore")
 
 
-pages_path = os.path.join(os.path.dirname(__file__), 'pages')
+pages_path = os.path.join(os.path.dirname(__file__), 'pages_models')
 if pages_path not in sys.path:
     sys.path.insert(0, pages_path)
 
@@ -19,11 +27,6 @@ if utils_path not in sys.path:
 with open("utils/style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-st.set_page_config(
-    page_title="Proyecto Popularidad",
-    page_icon="🎧",
-    layout="wide"
-)
 
 from models import (
     get_model_1, get_model_2, get_model_3,
