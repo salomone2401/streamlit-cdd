@@ -8,7 +8,6 @@ pkl_path = os.path.join("models", "xgboost_model.pkl")
 # Ruta del nuevo modelo exportado en formato .json
 json_path = os.path.join("models", "xgb_model.json")
 
-print("📦 Cargando modelo desde:", pkl_path)
 model = joblib.load(pkl_path)
 
 # Verificamos que sea un modelo XGBoost

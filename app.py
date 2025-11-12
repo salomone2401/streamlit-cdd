@@ -29,10 +29,8 @@ with open("utils/style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # --- Debug temporal para Streamlit Cloud ---
-st.write("📂 Archivos dentro de /models:")
 try:
     files = os.listdir("models")
-    st.write(files)
 except Exception as e:
     st.error(f"No se pudo listar la carpeta models: {e}")
 # -------------------------------------------
@@ -41,7 +39,7 @@ model_utils.load_all()
 
 models_dict = model_utils.get_models()
 scaler, feature_names = model_utils.get_scaler_and_features()
-
+X_train, y_train = model_utils.get_training_data()
 import traceback
 
 import traceback
@@ -49,17 +47,12 @@ import traceback
 import traceback, sys, time
 
 def safe_render(func, name="Sección"):
-    st.write(f"🔹 Entrando en {name}")
-    print(f"[DEBUG] Entrando en {name}", file=sys.stderr)
     start = time.time()
     try:
         func()
-        st.success(f"✅ {name} renderizada correctamente ({time.time()-start:.2f}s)")
-        print(f"[DEBUG] {name} OK", file=sys.stderr)
     except Exception as e:
         st.error(f"❌ Error en {name}: {e}")
         st.code(traceback.format_exc())
-        print(f"[ERROR] {name} falló: {e}", file=sys.stderr)
         print(traceback.format_exc(), file=sys.stderr)
         st.stop()
 
@@ -100,16 +93,10 @@ if opcion == "Introducción":
     </p>
     """, unsafe_allow_html=True)
 elif opcion == "EDA":
-    log("Entrando en EDA")
-    st.write("🧩 Entrando en EDA...")
     safe_render(lambda: eda.render(), name="EDA")
 
 elif opcion == "Machine Learning Models":
-    log("Entrando en ML")
-    st.write("🧩 Entrando en Machine Learning Models...")
-    safe_render(lambda: machine_learning.render(models_dict), name="Machine Learning Models")
+    safe_render(lambda: machine_learning.render(models_dict, X_train, y_train), name="Machine Learning Models")
 
 elif opcion == "Predicción":
-    log("Entrando en Predicción")
-    st.write("🧩 Entrando en Predicción...")
     safe_render(lambda: prediction.render(models_dict, scaler, feature_names), name="Predicción")
