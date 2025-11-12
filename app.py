@@ -42,12 +42,15 @@ scaler, feature_names = model_utils.get_scaler_and_features()
 
 import traceback
 
+import traceback
+
 def safe_render(func):
     try:
         func()
     except Exception as e:
-        st.error(f"⚠️ Error: {e}")
+        st.error(f"⚠️ Error en render: {e}")
         st.code(traceback.format_exc())
+        st.stop()  # 👈 evita que la app intente seguir y “reconecte”
 
 
 opcion = st.sidebar.radio(
