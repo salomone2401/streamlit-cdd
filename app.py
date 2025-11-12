@@ -44,13 +44,22 @@ import traceback
 
 import traceback
 
-def safe_render(func):
+import traceback, sys, time
+
+def safe_render(func, name="Sección"):
+    st.write(f"🔹 Entrando en {name}")
+    print(f"[DEBUG] Entrando en {name}", file=sys.stderr)
+    start = time.time()
     try:
         func()
+        st.success(f"✅ {name} renderizada correctamente ({time.time()-start:.2f}s)")
+        print(f"[DEBUG] {name} OK", file=sys.stderr)
     except Exception as e:
-        st.error(f"⚠️ Error en render: {e}")
+        st.error(f"❌ Error en {name}: {e}")
         st.code(traceback.format_exc())
-        st.stop()  # 👈 evita que la app intente seguir y “reconecte”
+        print(f"[ERROR] {name} falló: {e}", file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
+        st.stop()
 
 
 opcion = st.sidebar.radio(
@@ -89,8 +98,13 @@ if opcion == "Introducción":
     </p>
     """, unsafe_allow_html=True)
 elif opcion == "EDA":
-    safe_render(lambda: eda.render())
+    st.write("🧩 Intentando renderizar EDA...")
+    safe_render(lambda: eda.render(), name="EDA")
+
 elif opcion == "Machine Learning Models":
-    safe_render(lambda: machine_learning.render(models_dict, X_train, y_train))
+    st.write("🧩 Intentando renderizar Machine Learning Models...")
+    safe_render(lambda: machine_learning.render(models_dict, X_train, y_train), name="Machine Learning Models")
+
 elif opcion == "Predicción":
-    safe_render(lambda: prediction.render(models_dict, scaler, feature_names))
+    st.write("🧩 Intentando renderizar Predicción...")
+    safe_render(lambda: prediction.render(models_dict, scaler, feature_names), name="Predicción")
