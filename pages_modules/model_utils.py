@@ -3,6 +3,7 @@ import joblib
 import pickle
 import streamlit as st
 import warnings
+import xgboost as xgb  # 👈 necesario para leer el .json
 
 warnings.filterwarnings("ignore")
 
@@ -21,7 +22,7 @@ def get_models_dir():
 MODELS_DIR = get_models_dir()
 
 MODEL_1_PATH = os.path.join(MODELS_DIR, "logistic_regression_model.pkl")
-MODEL_2_PATH = os.path.join(MODELS_DIR, "xgboost_model.pkl")
+MODEL_2_JSON_PATH = os.path.join(MODELS_DIR, "xgb_model.json")  # 👈 usamos el JSON
 MODEL_3_PATH = os.path.join(MODELS_DIR, "random_forest_model.pkl")
 
 SCALER_PATH = os.path.join(MODELS_DIR, "scaler.pkl")
@@ -31,6 +32,7 @@ YTRAIN_PATH = os.path.join(MODELS_DIR, "y_test.pkl")
 
 
 def safe_load(path, description="archivo"):
+    """Carga segura para archivos .pkl o .joblib"""
     if not os.path.exists(path):
         st.warning(f"⚠️ {description} no encontrado en {path}")
         return None
@@ -38,7 +40,7 @@ def safe_load(path, description="archivo"):
         obj = joblib.load(path)
         st.success(f"✅ {description} cargado correctamente (joblib)")
         return obj
-    except Exception as e1:
+    except Exception:
         try:
             with open(path, "rb") as f:
                 obj = pickle.load(f)
@@ -50,11 +52,29 @@ def safe_load(path, description="archivo"):
 
 
 def load_all():
+    """Carga todos los modelos y objetos auxiliares"""
     global MODEL_1, MODEL_2, MODEL_3, scaler, feature_names, X_train, y_train
 
     st.write("### 🧠 Cargando modelos...")
+
+    # Modelo 1: Logistic Regression (.pkl)
     MODEL_1 = safe_load(MODEL_1_PATH, "Modelo 1 (Logistic Regression)")
-    MODEL_2 = safe_load(MODEL_2_PATH, "Modelo 2 (XGBoost)")
+
+    # Modelo 2: XGBoost (.json) ✅
+    if os.path.exists(MODEL_2_JSON_PATH):
+        try:
+            xgb_model = xgb.XGBClassifier()
+            xgb_model.load_model(MODEL_2_JSON_PATH)
+            MODEL_2 = xgb_model
+            st.success("✅ Modelo 2 (XGBoost) cargado correctamente desde JSON")
+        except Exception as e:
+            st.error(f"❌ Error cargando Modelo 2 (XGBoost JSON): {e}")
+            MODEL_2 = None
+    else:
+        st.warning(f"⚠️ Modelo 2 (XGBoost JSON) no encontrado en {MODEL_2_JSON_PATH}")
+        MODEL_2 = None
+
+    # Modelo 3: Random Forest (.pkl)
     MODEL_3 = safe_load(MODEL_3_PATH, "Modelo 3 (Random Forest)")
 
     st.write("### ⚙️ Cargando scaler y datos de entrenamiento...")
@@ -74,10 +94,10 @@ def load_all():
         "X_train": type(X_train),
         "y_train": type(y_train)
     })
-    # ------------------------------
 
 
 def get_models():
+    """Devuelve los modelos cargados en un diccionario"""
     return {
         "Logistic Regression": MODEL_1,
         "XGBoost": MODEL_2,
