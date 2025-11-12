@@ -92,46 +92,62 @@ def render(models, scaler, feature_names):
         except Exception as e:
             st.error(f"Error durante la predicción: {e}")
 
-def render_prediction(model, X_input):
+def render_prediction(model, X_input, scaler):
     import numpy as np
+    import shap
+    import matplotlib.pyplot as plt
+    from sklearn.linear_model import LogisticRegression
+    from xgboost import XGBClassifier
+    from sklearn.ensemble import RandomForestClassifier
 
-    # Probabilidad de ser popular
-    pred_proba = float(model.predict_proba(X_input)[0][1])
+    # Escalar los datos igual que en el entrenamiento
+    X_prepared = scaler.transform(X_input)
+    X_array = X_prepared
+
+    # --- Predicción ---
+    pred_proba = float(model.predict_proba(X_array)[0][1])
     st.write(f"🎵 Probabilidad de popularidad: **{pred_proba:.2f}**")
+
+    if pred_proba >= 0.5:
+        st.success("✅ ¡Tu canción probablemente será POPULAR!")
+    else:
+        st.warning("⚠️ Tu canción probablemente NO será popular")
 
     st.subheader("🧩 ¿Por qué el modelo tomó esta decisión?")
     st.write("El gráfico muestra qué características influyeron más en la predicción:")
 
     try:
-        # Convertir a numpy si el modelo no acepta DataFrames
-        X_array = X_input.to_numpy()
-
-        # Detectar tipo de modelo (árbol, lineal u otro)
-        model_name = type(model).__name__.lower()
-
-        if any(x in model_name for x in ["forest", "tree", "xgb", "lgbm", "boost"]):
+        # --- Selección del tipo de explainer según el modelo ---
+        if isinstance(model, (XGBClassifier, RandomForestClassifier)):
             explainer = shap.TreeExplainer(model)
+            shap_values = explainer.shap_values(X_array)
+        elif isinstance(model, LogisticRegression):
+            explainer = shap.LinearExplainer(model, X_array)
             shap_values = explainer.shap_values(X_array)
         else:
             explainer = shap.Explainer(model, X_array)
             shap_values = explainer(X_array)
 
-        # Si devuelve lista (modelos binarios)
-        if isinstance(shap_values, list):
+        # --- Manejo de salida de SHAP según el modelo ---
+        if isinstance(shap_values, list) and len(shap_values) > 1:
             shap_array = shap_values[1]
         elif hasattr(shap_values, "values"):
             shap_array = shap_values.values
         else:
             shap_array = shap_values
 
-        # Mostrar gráfico de barras
+        # --- Gráfico de barras SHAP ---
         fig, ax = plt.subplots()
-        shap.summary_plot(shap_array, X_array, feature_names=X_input.columns, plot_type="bar", show=False)
+        shap.summary_plot(
+            shap_array, X_array, feature_names=X_input.columns, plot_type="bar", show=False
+        )
         st.pyplot(fig)
 
-        # Mostrar texto de explicación
+        # --- Explicación textual de los principales factores ---
         vals = shap_array[0] if len(shap_array.shape) > 1 else shap_array
-        top_features = sorted(zip(X_input.columns, vals), key=lambda x: abs(x[1]), reverse=True)[:3]
+        top_features = sorted(
+            zip(X_input.columns, vals), key=lambda x: abs(x[1]), reverse=True
+        )[:3]
 
         st.markdown("**Principales factores que influyeron:**")
         for name, val in top_features:

@@ -9,6 +9,9 @@ st.set_page_config(
     layout="wide"
 )
 
+def log(msg):
+    print(f"[DEBUG] {msg}", file=sys.stderr)
+    sys.stderr.flush()
 
 pages_modules_path = os.path.join(os.path.dirname(__file__), 'pages_modules')
 if pages_modules_path not in sys.path:
@@ -98,13 +101,16 @@ if opcion == "Introducción":
     </p>
     """, unsafe_allow_html=True)
 elif opcion == "EDA":
-    st.write("🧩 Intentando renderizar EDA...")
+    log("Entrando en EDA")
+    st.write("🧩 Entrando en EDA...")
     safe_render(lambda: eda.render(), name="EDA")
 
 elif opcion == "Machine Learning Models":
-    st.write("🧩 Intentando renderizar Machine Learning Models...")
+    log("Entrando en ML")
+    st.write("🧩 Entrando en Machine Learning Models...")
     safe_render(lambda: machine_learning.render(models_dict, X_train, y_train), name="Machine Learning Models")
 
 elif opcion == "Predicción":
-    st.write("🧩 Intentando renderizar Predicción...")
+    log("Entrando en Predicción")
+    st.write("🧩 Entrando en Predicción...")
     safe_render(lambda: prediction.render(models_dict, scaler, feature_names), name="Predicción")
