@@ -80,8 +80,8 @@ def load_all():
     st.write("### ⚙️ Cargando scaler y datos de entrenamiento...")
     scaler = safe_load(SCALER_PATH, "Scaler")
     feature_names = safe_load(FEATURE_NAMES_PATH, "Feature Names")
-    X_train = safe_load(XTRAIN_PATH, "X_train")
-    y_train = safe_load(YTRAIN_PATH, "y_train")
+    X_train = None
+    y_train = None
 
     # --- Diagnóstico adicional ---
     st.write("### 🧾 Diagnóstico final:")
