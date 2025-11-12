@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
-import shap
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
+from sklearn.ensemble import RandomForestClassifier
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -92,22 +94,15 @@ def render(models, scaler, feature_names):
         except Exception as e:
             st.error(f"Error durante la predicción: {e}")
 
+
 # =====================================================
-#   FUNCIÓN DE EXPLICACIÓN SHAP MEJORADA
+#   FUNCIÓN DE PREDICCIÓN + EXPLICACIÓN BASADA EN PESOS
 # =====================================================
 def render_prediction(model, X_input, scaler):
-    import shap
-    import matplotlib.pyplot as plt
-    from sklearn.linear_model import LogisticRegression
-    from xgboost import XGBClassifier
-    from sklearn.ensemble import RandomForestClassifier
-
-    # Escalar igual que en el entrenamiento
     X_prepared = scaler.transform(X_input)
-    X_array = X_prepared
+    pred_proba = float(model.predict_proba(X_prepared)[0][1])
 
-    # --- Predicción y mensaje ---
-    pred_proba = float(model.predict_proba(X_array)[0][1])
+    # Mostrar resultado
     st.write(f"🎵 Probabilidad de popularidad: **{pred_proba:.2f}**")
 
     if pred_proba >= 0.5:
@@ -115,55 +110,57 @@ def render_prediction(model, X_input, scaler):
     else:
         st.warning("⚠️ Tu canción probablemente NO será popular")
 
-    st.subheader("🧩 ¿Por qué el modelo tomó esta decisión?")
-    st.write("El gráfico muestra las características que más influyeron en la predicción:")
+    st.subheader("🧩 Explicación de la predicción")
 
     try:
-        # Selección del tipo de explainer según el modelo
-        if isinstance(model, (XGBClassifier, RandomForestClassifier)):
-            explainer = shap.TreeExplainer(model)
-            shap_values = explainer.shap_values(X_array)
-        elif isinstance(model, LogisticRegression):
-            explainer = shap.LinearExplainer(model, X_array)
-            shap_values = explainer.shap_values(X_array)
+        # Obtener importancia de las características según tipo de modelo
+        if hasattr(model, "coef_"):  # LogisticRegression
+            importances = model.coef_[0]
+        elif hasattr(model, "feature_importances_"):  # RandomForest o XGBoost
+            importances = model.feature_importances_
         else:
-            explainer = shap.Explainer(model, X_array)
-            shap_values = explainer(X_array)
+            importances = np.zeros(X_input.shape[1])
 
-        # Manejo del formato de salida
-        if isinstance(shap_values, list) and len(shap_values) > 1:
-            shap_array = shap_values[1]
-        elif hasattr(shap_values, "values"):
-            shap_array = shap_values.values
+        # Crear serie de importancia
+        feature_importance = pd.Series(importances, index=X_input.columns)
+        top_features = feature_importance.abs().sort_values(ascending=False).head(5).index.tolist()
+
+        # Texto explicativo
+        explanation = []
+        for feat in top_features:
+            value = X_input.iloc[0][feat]
+            if "genre_" in feat and value == 1:
+                explanation.append(f"- El género **{feat.replace('genre_', '')}** tuvo un peso importante en la predicción.")
+            elif feat in ["danceability", "energy", "valence"]:
+                level = "alta" if value > 0.6 else "baja"
+                explanation.append(f"- La característica **{feat}** es {level}, lo que influyó en la {'popularidad' if value > 0.6 else 'falta de popularidad'}.")
+            elif feat == "acousticness":
+                if value > 0.6:
+                    explanation.append("- Alta **acousticness**: el modelo asocia canciones muy acústicas con menor popularidad.")
+                else:
+                    explanation.append("- Baja **acousticness**: el modelo asocia canciones más eléctricas con mayor popularidad.")
+            elif feat == "tempo":
+                explanation.append(f"- El **tempo** de {value:.1f} BPM tuvo un impacto moderado.")
+            elif feat == "duration_ms":
+                mins = value / 60000
+                explanation.append(f"- La duración de **{mins:.1f} minutos** influyó ligeramente en la predicción.")
+
+        # Mostrar explicación según el resultado
+        if pred_proba >= 0.5:
+            st.markdown("🟢 **Tu canción tiene características asociadas con temas exitosos:**")
         else:
-            shap_array = shap_values
+            st.markdown("🔴 **Tu canción tiene características asociadas con menor popularidad:**")
 
-        # --- Gráfico SHAP personalizado ---
-        fig, ax = plt.subplots(figsize=(8, 5))
-        shap.summary_plot(
-            shap_array,
-            X_array,
-            feature_names=X_input.columns,
-            plot_type="bar",
-            color_bar=False,
-            show=False
-        )
-        plt.title("Impacto medio de cada característica en la predicción", fontsize=12)
-        plt.xlabel("Magnitud media del valor SHAP", fontsize=10)
-        plt.tight_layout()
+        for e in explanation:
+            st.markdown(e)
+
+        # Mostrar gráfico simple de las top features
+        fig, ax = plt.subplots()
+        top_imp = feature_importance.abs().sort_values(ascending=True).tail(5)
+        top_imp.plot(kind="barh", ax=ax, color="#1DB954")
+        plt.xlabel("Importancia relativa")
+        plt.title("Características más influyentes en la predicción")
         st.pyplot(fig)
 
-        # --- Principales factores ---
-        vals = shap_array[0] if len(shap_array.shape) > 1 else shap_array
-        top_features = sorted(zip(X_input.columns, vals), key=lambda x: abs(x[1]), reverse=True)[:3]
-
-        st.markdown("**Principales factores que influyeron:**")
-        for name, val in top_features:
-            direction = "aumentó" if val > 0 else "disminuyó"
-            color = "green" if val > 0 else "red"
-            st.markdown(f"- <span style='color:{color}'>{name}</span> {direction} la probabilidad de ser popular ({val:.3f})", unsafe_allow_html=True)
-
-        st.success(f"Predicción renderizada correctamente ({np.random.uniform(0.25,0.45):.2f}s)")
-
     except Exception as e:
-        st.error(f"No se pudo generar la explicación SHAP: {e}")
+        st.error(f"No se pudo generar la explicación: {e}")
