@@ -1,0 +1,269 @@
+/* Estilos generales */
+.stApp {
+    background: linear-gradient(135deg, #121212 0%, #1a1a1a 100%);
+    color: #ffffff;
+}
+
+/* Sidebar */
+.css-1d391kg {
+    background-color: #000000;
+}
+
+[data-testid="stSidebar"] {
+    background-color: #000000;
+}
+
+/* Cards de modelos */
+.model-card {
+    background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(29, 185, 84, 0.2);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.model-card:hover {
+    border-color: rgba(29, 185, 84, 0.5);
+    box-shadow: 0 6px 12px rgba(29, 185, 84, 0.2);
+    transform: translateY(-2px);
+}
+
+.model-card h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.model-card p {
+    margin: 10px 0;
+    color: #b3b3b3;
+    line-height: 1.6;
+}
+
+.model-card strong {
+    color: #ffffff;
+}
+
+/* Cards de métricas */
+.metrics-card {
+    background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(29, 185, 84, 0.2);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.metrics-card h4 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.metric-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.metric-item:last-child {
+    border-bottom: none;
+}
+
+.metric-label {
+    color: #b3b3b3;
+    font-size: 0.95em;
+    font-weight: 500;
+}
+
+.metric-value {
+    color: #1DB954;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+/* Header de modelos */
+.models-header {
+    margin-bottom: 30px;
+    padding: 20px 0;
+}
+
+.models-header h2 {
+    font-size: 2.5em;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+/* Comparación */
+.comparison-intro {
+    background: rgba(29, 185, 84, 0.1);
+    border-left: 4px solid #1DB954;
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+}
+
+/* Info de cargar modelos */
+.load-models-info {
+    background: rgba(29, 185, 84, 0.1);
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.load-models-info code {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #1DB954;
+    font-family: 'Courier New', monospace;
+}
+
+/* Tabs personalizados */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    background-color: transparent;
+}
+
+.stTabs [data-baseweb="tab"] {
+    background-color: #1e1e1e;
+    color: #b3b3b3;
+    border-radius: 8px 8px 0 0;
+    padding: 12px 24px;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: #2a2a2a;
+    color: #ffffff;
+}
+
+.stTabs [aria-selected="true"] {
+    background-color: #1DB954;
+    color: #000000;
+    font-weight: 600;
+    border-color: #1DB954;
+}
+
+/* Dataframe styling */
+.dataframe {
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.dataframe thead {
+    background-color: #1DB954;
+    color: #000000;
+}
+
+.dataframe tbody tr {
+    background-color: #2a2a2a;
+    color: #ffffff;
+}
+
+.dataframe tbody tr:nth-child(even) {
+    background-color: #1e1e1e;
+}
+
+.dataframe tbody tr:hover {
+    background-color: rgba(29, 185, 84, 0.2);
+}
+
+/* Code blocks */
+.stCodeBlock {
+    background-color: #1e1e1e;
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    border-radius: 8px;
+}
+
+/* Markdown headings */
+h3 {
+    color: #1DB954;
+    margin-top: 30px;
+    margin-bottom: 20px;
+}
+
+h4 {
+    color: #1DB954;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #1DB954;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #1ed760;
+}
+
+/* Placeholder para gráficos */
+.plotly {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Botones y controles */
+.stButton > button {
+    background-color: #1DB954;
+    color: #000000;
+    border-radius: 25px;
+    border: none;
+    font-weight: 600;
+    padding: 0.5rem 2rem;
+    transition: all 0.3s ease;
+}
+
+.stButton > button:hover {
+    background-color: #1ed760;
+    transform: scale(1.05);
+}
+
+/* Radio buttons en sidebar */
+.stRadio > label {
+    color: #b3b3b3;
+    font-weight: 500;
+}
+
+.stRadio > label:hover {
+    color: #ffffff;
+}
+
+/* Inputs */
+.stTextInput > div > div > input {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+}
+
+.stTextInput > div > div > input:focus {
+    border-color: #1DB954;
+    box-shadow: 0 0 0 2px rgba(29, 185, 84, 0.2);
+}
+
+/* Selectbox */
+.stSelectbox > div > div {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+}
+
