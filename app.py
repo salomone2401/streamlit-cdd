@@ -1,7 +1,23 @@
 import streamlit as st
-import os
+from pages import eda, machine_learning, prediction
+
 import sys
+import os
+
 import warnings
+warnings.filterwarnings("ignore")
+
+
+pages_path = os.path.join(os.path.dirname(__file__), 'pages')
+if pages_path not in sys.path:
+    sys.path.insert(0, pages_path)
+
+utils_path = os.path.join(os.path.dirname(__file__), 'utils')
+if utils_path not in sys.path:
+    sys.path.insert(0, utils_path)
+
+with open("utils/style.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 st.set_page_config(
     page_title="Proyecto Popularidad",
@@ -9,58 +25,26 @@ st.set_page_config(
     layout="wide"
 )
 
-def log(msg):
-    print(f"[DEBUG] {msg}", file=sys.stderr)
-    sys.stderr.flush()
+from models import (
+    get_model_1, get_model_2, get_model_3,
+    scaler, feature_names, load_all_models
+)
 
-pages_modules_path = os.path.join(os.path.dirname(__file__), 'pages_modules')
-if pages_modules_path not in sys.path:
-    sys.path.insert(0, pages_modules_path)
+@st.cache_resource
+def load_models_once():
+    load_all_models()
+    return {
+        "Logistic Regression": get_model_1(),
+        "XGBoost": get_model_2(),
+        "Random Forest": get_model_3(),
+    }
 
-utils_path = os.path.join(os.path.dirname(__file__), 'utils')
-if utils_path not in sys.path:
-    sys.path.insert(0, utils_path)
-
-from pages_modules import eda, machine_learning, prediction, model_utils
-
-warnings.filterwarnings("ignore")
-
-with open("utils/style.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-# --- Debug temporal para Streamlit Cloud ---
-try:
-    files = os.listdir("models")
-except Exception as e:
-    st.error(f"No se pudo listar la carpeta models: {e}")
-# -------------------------------------------
-
-model_utils.load_all()  
-
-models_dict = model_utils.get_models()
-scaler, feature_names = model_utils.get_scaler_and_features()
-X_train, y_train = model_utils.get_training_data()
-import traceback
-
-import traceback
-
-import traceback, sys, time
-
-def safe_render(func, name="Sección"):
-    start = time.time()
-    try:
-        func()
-    except Exception as e:
-        st.error(f"❌ Error en {name}: {e}")
-        st.code(traceback.format_exc())
-        print(traceback.format_exc(), file=sys.stderr)
-        st.stop()
-
+models = load_models_once()
 
 opcion = st.sidebar.radio(
-    label="Selecciona una sección",  
-    options=["Introducción", "EDA", "Machine Learning Models", "Predicción"],
-    label_visibility="hidden"
+    label="Selecciona un modelo",  # ✅ obligatorio: label no vacío
+    options= ["Introducción", "EDA", "Machine Learning Models", "Predicción"],
+    label_visibility="hidden"  # 👈 oculta visualmente el label si no lo quieres mostrar
 )
 
 if opcion == "Introducción":
@@ -74,7 +58,7 @@ if opcion == "Introducción":
     </div>
     <hr style="border: 1px solid #1DB954;">
     <h2 style="color:#1DB954;">¿Qué vamos a predecir?</h2>
-    <p>En este proyecto desarrollamos un modelo de <b>Machine Learning</b> capaz de
+    <p>En este proyecto desarrollaremos un modelo de <b>Machine Learning</b> capaz de
     predecir si una canción es popular o no (<code>spotify_artist_popularity</code>), 
     utilizando tanto sus características musicales como la información del artista.</p>
     <ul>
@@ -92,11 +76,12 @@ if opcion == "Introducción":
     <b style="color:#1DB954;">Ana Paula Salomone</b>
     </p>
     """, unsafe_allow_html=True)
+
 elif opcion == "EDA":
-    safe_render(lambda: eda.render(), name="EDA")
+    eda.render()
 
 elif opcion == "Machine Learning Models":
-    safe_render(lambda: machine_learning.render(models_dict, X_train, y_train), name="Machine Learning Models")
+    machine_learning.render(models)
 
 elif opcion == "Predicción":
-    safe_render(lambda: prediction.render(models_dict, scaler, feature_names), name="Predicción")
+    prediction.render(models, scaler, feature_names)
