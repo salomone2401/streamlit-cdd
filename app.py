@@ -3,6 +3,13 @@ import os
 import sys
 import warnings
 
+st.set_page_config(
+    page_title="Proyecto Popularidad",
+    page_icon="🎧",
+    layout="wide"
+)
+
+
 pages_modules_path = os.path.join(os.path.dirname(__file__), 'pages_modules')
 if pages_modules_path not in sys.path:
     sys.path.insert(0, pages_modules_path)
@@ -17,13 +24,6 @@ warnings.filterwarnings("ignore")
 
 with open("utils/style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-st.set_page_config(
-    page_title="Proyecto Popularidad",
-    page_icon="🎧",
-    layout="wide"
-)
-
 
 # --- Debug temporal para Streamlit Cloud ---
 st.write("📂 Archivos dentro de /models:")
