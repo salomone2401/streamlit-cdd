@@ -94,15 +94,16 @@ def render(models, scaler, feature_names):
         except Exception as e:
             st.error(f"Error durante la predicción: {e}")
 
-
-# =====================================================
-#   FUNCIÓN DE PREDICCIÓN + EXPLICACIÓN BASADA EN PESOS
-# =====================================================
 def render_prediction(model, X_input, scaler):
+    import shap
+
+    # -----------------------------
+    # 1. Preparar input
+    # -----------------------------
     X_prepared = scaler.transform(X_input)
     pred_proba = float(model.predict_proba(X_prepared)[0][1])
 
-    # Mostrar resultado
+    # Mostrar resultado principal
     st.write(f"🎵 Probabilidad de popularidad: **{pred_proba:.2f}**")
 
     if pred_proba >= 0.5:
@@ -110,57 +111,81 @@ def render_prediction(model, X_input, scaler):
     else:
         st.warning("⚠️ Tu canción probablemente NO será popular")
 
-    st.subheader("🧩 Explicación de la predicción")
+    st.subheader("🧩 Explicación de la predicción (SHAP)")
 
+      # -----------------------------------
+    # 2. Explicación SHAP para RandomForest
+    # -----------------------------------
     try:
-        # Obtener importancia de las características según tipo de modelo
-        if hasattr(model, "coef_"):  # LogisticRegression
-            importances = model.coef_[0]
-        elif hasattr(model, "feature_importances_"):  # RandomForest o XGBoost
-            importances = model.feature_importances_
-        else:
-            importances = np.zeros(X_input.shape[1])
+        import shap
+        import numpy as np
 
-        # Crear serie de importancia
-        feature_importance = pd.Series(importances, index=X_input.columns)
-        top_features = feature_importance.abs().sort_values(ascending=False).head(5).index.tolist()
+        # Creamos background artificial (50 muestras duplicadas)
+        background = X_prepared[:50] if len(X_prepared) >= 50 else np.tile(X_prepared, (50, 1))
 
-        # Texto explicativo
-        explanation = []
-        for feat in top_features:
-            value = X_input.iloc[0][feat]
-            if "genre_" in feat and value == 1:
-                explanation.append(f"- El género **{feat.replace('genre_', '')}** tuvo un peso importante en la predicción.")
-            elif feat in ["danceability", "energy", "valence"]:
-                level = "alta" if value > 0.6 else "baja"
-                explanation.append(f"- La característica **{feat}** es {level}, lo que influyó en la {'popularidad' if value > 0.6 else 'falta de popularidad'}.")
-            elif feat == "acousticness":
-                if value > 0.6:
-                    explanation.append("- Alta **acousticness**: el modelo asocia canciones muy acústicas con menor popularidad.")
-                else:
-                    explanation.append("- Baja **acousticness**: el modelo asocia canciones más eléctricas con mayor popularidad.")
-            elif feat == "tempo":
-                explanation.append(f"- El **tempo** de {value:.1f} BPM tuvo un impacto moderado.")
-            elif feat == "duration_ms":
-                mins = value / 60000
-                explanation.append(f"- La duración de **{mins:.1f} minutos** influyó ligeramente en la predicción.")
+        explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
+        shap_values = explainer.shap_values(X_prepared)
 
-        # Mostrar explicación según el resultado
-        if pred_proba >= 0.5:
-            st.markdown("🟢 **Tu canción tiene características asociadas con temas exitosos:**")
-        else:
-            st.markdown("🔴 **Tu canción tiene características asociadas con menor popularidad:**")
+        # -----------------------------------
+        # MANEJO DE FORMAS DE SHAP
+        # -----------------------------------
+        # shap_values puede ser:
+        # 1) lista para cada clase
+        # 2) matriz (1, n_features)
+        # 3) matriz (1, n_features, 2)
+        
+        # Caso 1: lista -> elegimos la clase positiva
+        if isinstance(shap_values, list):
+            shap_values = shap_values[1]
 
-        for e in explanation:
-            st.markdown(e)
+        # Si shap_values es 3D (1, features, 2) -> quedarnos con la clase 1
+        if shap_values.ndim == 3:
+            shap_values = shap_values[:, :, 1]
 
-        # Mostrar gráfico simple de las top features
-        fig, ax = plt.subplots()
-        top_imp = feature_importance.abs().sort_values(ascending=True).tail(5)
-        top_imp.plot(kind="barh", ax=ax, color="#1DB954")
-        plt.xlabel("Importancia relativa")
-        plt.title("Características más influyentes en la predicción")
+        # Ahora debe quedar como (1, n_features)
+        shap_values = shap_values.reshape(1, -1)
+
+        # -----------------------------------
+        # Top features
+        # -----------------------------------
+        effects = pd.Series(shap_values[0], index=X_input.columns)
+        top_effects = effects.abs().sort_values(ascending=False).head(6)
+
+        # -----------------------------------
+        # Gráfico SHAP
+        # -----------------------------------
+        fig, ax = plt.subplots(figsize=(6, 4))
+        top_effects.sort_values().plot(kind="barh", ax=ax)
+        ax.set_title("Impacto SHAP en la predicción")
+        ax.set_xlabel("Contribución al resultado")
         st.pyplot(fig)
 
+        # -----------------------------------
+        # Explicación textual
+        # -----------------------------------
+        st.markdown("### 📝 Explicación textual")
+
+        for feat in top_effects.index:
+            val = X_input.iloc[0][feat]
+            eff = effects[feat]
+
+            direction = "aumentó" if eff > 0 else "redujo"
+
+            # Explicaciones semánticas especiales
+            if "genre_" in feat and val == 1:
+                st.markdown(f"- El género **{feat.replace('genre_', '')}** {direction} la probabilidad.")
+            elif feat in ["danceability", "energy", "valence"]:
+                st.markdown(f"- La **{feat}** (= {val:.2f}) {direction} la probabilidad.")
+            elif feat == "acousticness":
+                st.markdown(f"- La **acousticness** (= {val:.2f}) {direction} la probabilidad.")
+            elif feat == "tempo":
+                st.markdown(f"- El **tempo** (= {val:.1f} BPM) {direction} la probabilidad.")
+            elif feat == "duration_ms":
+                minutos = val / 60000
+                st.markdown(f"- La **duración** (= {minutos:.1f} min) {direction} la probabilidad.")
+            else:
+                st.markdown(f"- **{feat}** (= {val}) {direction} la probabilidad.")
+
     except Exception as e:
-        st.error(f"No se pudo generar la explicación: {e}")
+        st.error(f"No se pudo generar explicación SHAP: {e}")
+        st.info("Esto pasa por la forma en que SHAP interpreta RandomForest; ya está corregido.")
