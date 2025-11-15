@@ -5,6 +5,7 @@ import streamlit as st
 import warnings
 
 from huggingface_hub import hf_hub_download, login
+import xgboost as xgb
 
 warnings.filterwarnings("ignore")
 
@@ -72,8 +73,17 @@ def load_all():
     model_1_path = load_from_hf("logistic_regression_model.pkl", "Modelo 1 (Logistic Regression)")
     MODEL_1 = safe_load(model_1_path, "Modelo 1 (Logistic Regression)") if model_1_path else None
 
-    model_2_path = load_from_hf("xgboost_model.pkl", "Modelo 2 (XGBoost)")
-    MODEL_2 = safe_load(model_2_path, "Modelo 2 (XGBoost)") if model_2_path else None
+    model_2_path = load_from_hf("xgb_model.json", "Modelo 2 (XGBoost)")
+    if model_2_path and model_2_path.endswith(".json"):
+        try:
+            temp_model = xgb.XGBClassifier()
+            temp_model.load_model(model_2_path)
+            MODEL_2 = temp_model
+        except Exception as e:
+            st.error(f"❌ Error cargando Modelo 2 (XGBoost) JSON: {e}")
+            MODEL_2 = None
+    else:
+        MODEL_2 = safe_load(model_2_path, "Modelo 2 (XGBoost)") if model_2_path else None
 
     model_3_path = load_from_hf("random_forest_model.pkl", "Modelo 3 (Random Forest)")
     MODEL_3 = safe_load(model_3_path, "Modelo 3 (Random Forest)") if model_3_path else None
