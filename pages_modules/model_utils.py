@@ -86,9 +86,11 @@ def load_all():
     feature_names = safe_load(feature_names_path, "Feature Names") if feature_names_path else None
     
     # Cargar datos de entrenamiento/test desde archivos LOCALES
-    st.info("📊 Cargando datos de entrenamiento desde archivos locales...")
-    X_train = safe_load(XTRAIN_PATH, "X_train")
-    y_train = safe_load(YTRAIN_PATH, "y_train")
+    xtrain_path = load_from_hf("X_test.pkl", "x tests")
+    X_train = safe_load(xtrain_path, "x tests Names") if xtrain_path else None
+    ytrain_path = load_from_hf("y_test.pkl", "y tests")
+
+    y_train = safe_load(ytrain_path, "y tests Names") if ytrain_path else None
 
     # Diagnóstico de carga
     loaded_models = sum([1 for m in [MODEL_1, MODEL_2, MODEL_3] if m is not None])
