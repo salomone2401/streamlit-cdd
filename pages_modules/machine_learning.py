@@ -7,7 +7,7 @@ import joblib
 import warnings
 warnings.filterwarnings("ignore")
 
-def render(models, X_test, y_test):
+def render(models, X_train, y_train):
     st.markdown("""
     <div class="models-header" style="text-align:center;">
         <h2 style="color:#1DB954; margin-bottom:10px;">Modelos de Machine Learning</h2>
@@ -17,10 +17,10 @@ def render(models, X_test, y_test):
     </div>
     """, unsafe_allow_html=True)
 
-    # Validar que tenemos datos de prueba
-    if X_test is None or y_test is None:
-        st.warning("⚠️ No se pudieron cargar los datos de prueba desde HuggingFace.")
-        st.info("📝 Los modelos están disponibles para hacer predicciones en la sección 'Predicción', pero no se pueden mostrar métricas de evaluación sin datos de prueba.")
+    # Validar que tenemos datos de entrenamiento/test
+    if X_train is None or y_train is None:
+        st.warning("⚠️ No se pudieron cargar los datos de entrenamiento/test desde HuggingFace.")
+        st.info("📝 Los modelos están disponibles para hacer predicciones en la sección 'Predicción', pero no se pueden mostrar métricas de evaluación sin datos de entrenamiento/test.")
         
         # Mostrar información básica de los modelos
         st.markdown("### 📊 Modelos Disponibles")
@@ -41,15 +41,15 @@ def render(models, X_test, y_test):
     metrics = {}
     for name, model in valid_models.items():
         try:
-            y_pred = model.predict(X_test)
+            y_pred = model.predict(X_train)
             if hasattr(model, "predict_proba"):
-                y_proba = model.predict_proba(X_test)[:, 1]
+                y_proba = model.predict_proba(X_train)[:, 1]
             else:
                 y_proba = None
 
             # Calcular curva ROC si hay probabilidades
             if y_proba is not None:
-                fpr, tpr, _ = roc_curve(y_test, y_proba)
+                fpr, tpr, _ = roc_curve(y_train, y_proba)
                 roc_auc = auc(fpr, tpr)
             else:
                 fpr, tpr, roc_auc = None, None, None
@@ -73,8 +73,8 @@ def render(models, X_test, y_test):
             model = valid_models[name]
             if hasattr(model, "predict_proba") and metrics[name]['AUC'] != "Error":
                 try:
-                    y_proba = model.predict_proba(X_test)[:, 1]
-                    fpr, tpr, _ = roc_curve(y_test, y_proba)
+                    y_proba = model.predict_proba(X_train)[:, 1]
+                    fpr, tpr, _ = roc_curve(y_train, y_proba)
                     roc_auc = auc(fpr, tpr)
 
                     fig = go.Figure()
