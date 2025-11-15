@@ -6,72 +6,46 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-MODEL_1 = MODEL_2 = MODEL_3 = None
-X_train = y_train = None
-scaler = None
-feature_names = None
+from huggingface_hub import hf_hub_download
+import pickle
+import xgboost as xgb
 
+REPO = "gilmagali4/spotify-popularity-models"   
 
-def get_models_dir():
-    current_dir = os.path.dirname(__file__)
-    project_root = os.path.dirname(current_dir)
-    return os.path.join(project_root, "models")
+def load_all_models():
+    # Logistic Regression
+    logreg_path = hf_hub_download(REPO, "logistic_regression_model.pkl")
+    with open(logreg_path, "rb") as f:
+        logreg = pickle.load(f)
 
+    # Random Forest
+    rf_path = hf_hub_download(REPO, "random_forest_model.pkl")
+    with open(rf_path, "rb") as f:
+        rf = pickle.load(f)
 
-MODELS_DIR = get_models_dir()
+    # XGBoost
+    xgb_path = hf_hub_download(REPO, "xgboost_model.pkl")
+    xgb_model = xgb.XGBClassifier()
+    xgb_model.load_model(xgb_path)
 
-MODEL_1_PATH = os.path.join(MODELS_DIR, "logistic_regression_model.pkl")
-MODEL_2_PATH = os.path.join(MODELS_DIR, "xgboost_model.pkl")
-MODEL_3_PATH = os.path.join(MODELS_DIR, "random_forest_model.pkl")
+    # Scaler
+    scaler_path = hf_hub_download(REPO, "scaler.pkl")
+    with open(scaler_path, "rb") as f:
+        scaler = pickle.load(f)
 
-SCALER_PATH = os.path.join(MODELS_DIR, "scaler.pkl")
-FEATURE_NAMES_PATH = os.path.join(MODELS_DIR, "feature_names.pkl")
-XTRAIN_PATH = os.path.join(MODELS_DIR, "X_test.pkl")
-YTRAIN_PATH = os.path.join(MODELS_DIR, "y_test.pkl")
+    # Feature names
+    feat_path = hf_hub_download(REPO, "feature_names.pkl")
+    with open(feat_path, "rb") as f:
+        feature_names = pickle.load(f)
+        
+    # Feature names
+    X_train_path = hf_hub_download(REPO, "X_train.pkl")
+    with open(X_train_path, "rb") as f:
+        X_train = pickle.load(f)
+  
+    # Feature names
+    y_train_path = hf_hub_download(REPO, "y_train.pkl")
+    with open(y_train_path, "rb") as f:
+        y_train = pickle.load(f)
 
-
-def safe_load(path, description="archivo"):
-    if not os.path.exists(path):
-        return None
-    try:
-        obj = joblib.load(path)
-        return obj
-    except Exception as e1:
-        try:
-            with open(path, "rb") as f:
-                obj = pickle.load(f)
-                return obj
-        except Exception as e2:
-            st.error(f"❌ Error cargando {description}: {e2}")
-            return None
-
-
-def load_all():
-    global MODEL_1, MODEL_2, MODEL_3, scaler, feature_names, X_train, y_train
-
-    MODEL_1 = safe_load(MODEL_1_PATH, "Modelo 1 (Logistic Regression)")
-    MODEL_2 = safe_load(MODEL_2_PATH, "Modelo 2 (XGBoost)")
-    MODEL_3 = safe_load(MODEL_3_PATH, "Modelo 3 (Random Forest)")
-
-    scaler = safe_load(SCALER_PATH, "Scaler")
-    feature_names = safe_load(FEATURE_NAMES_PATH, "Feature Names")
-    X_train = safe_load(XTRAIN_PATH, "X_train")
-    y_train = safe_load(YTRAIN_PATH, "y_train")
-
-    # --- Diagnóstico adicional ---
- 
-
-def get_models():
-    return {
-        "Logistic Regression": MODEL_1,
-        "XGBoost": MODEL_2,
-        "Random Forest": MODEL_3,
-    }
-
-
-def get_training_data():
-    return X_train, y_train
-
-
-def get_scaler_and_features():
-    return scaler, feature_names
+    return logreg, rf, xgb_model, scaler, feature_names, X_train, y_train

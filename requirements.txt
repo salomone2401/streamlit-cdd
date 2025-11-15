@@ -19,3 +19,5 @@ matplotlib==3.9.2
 # --- Utilidades ---
 tqdm==4.67.1
 requests==2.32.3
+
+huggingface_hub
