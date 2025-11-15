@@ -17,65 +17,91 @@ def render(models, X_test, y_test):
     </div>
     """, unsafe_allow_html=True)
 
+    # Validar que tenemos datos de prueba
+    if X_test is None or y_test is None:
+        st.warning("⚠️ No se pudieron cargar los datos de prueba desde HuggingFace.")
+        st.info("📝 Los modelos están disponibles para hacer predicciones en la sección 'Predicción', pero no se pueden mostrar métricas de evaluación sin datos de prueba.")
+        
+        # Mostrar información básica de los modelos
+        st.markdown("### 📊 Modelos Disponibles")
+        for name, model in models.items():
+            if model is not None:
+                st.success(f"✅ **{name}**: Modelo cargado correctamente")
+            else:
+                st.error(f"❌ **{name}**: No se pudo cargar")
+        return
 
+    # Validar que los modelos no sean None
+    valid_models = {name: model for name, model in models.items() if model is not None}
+    
+    if not valid_models:
+        st.error("❌ No hay modelos válidos cargados.")
+        return
 
     metrics = {}
-    for name, model in models.items():
-        y_pred = model.predict(X_test)
-        if hasattr(model, "predict_proba"):
-            y_proba = model.predict_proba(X_test)[:, 1]
-        else:
-            y_proba = None
+    for name, model in valid_models.items():
+        try:
+            y_pred = model.predict(X_test)
+            if hasattr(model, "predict_proba"):
+                y_proba = model.predict_proba(X_test)[:, 1]
+            else:
+                y_proba = None
 
-        # Calcular curva ROC si hay probabilidades
-        if y_proba is not None:
-            fpr, tpr, _ = roc_curve(y_test, y_proba)
-            roc_auc = auc(fpr, tpr)
-        else:
-            fpr, tpr, roc_auc = None, None, None
+            # Calcular curva ROC si hay probabilidades
+            if y_proba is not None:
+                fpr, tpr, _ = roc_curve(y_test, y_proba)
+                roc_auc = auc(fpr, tpr)
+            else:
+                fpr, tpr, roc_auc = None, None, None
 
-        metrics[name] = {
-            "AUC": round(roc_auc, 3) if roc_auc else "N/A"
-        }
+            metrics[name] = {
+                "AUC": round(roc_auc, 3) if roc_auc else "N/A"
+            }
+        except Exception as e:
+            st.error(f"❌ Error evaluando modelo {name}: {e}")
+            metrics[name] = {"AUC": "Error"}
 
     # --- Crear pestañas ---
-    model_tabs = st.tabs(list(models.keys()))
+    model_tabs = st.tabs(list(valid_models.keys()))
 
-    for name, tab in zip(models.keys(), model_tabs):
+    for name, tab in zip(valid_models.keys(), model_tabs):
         with tab:
             st.markdown(f"### 📘 {name}")
             st.write(f"**AUC:** {metrics[name]['AUC']}")
 
             # Dibujar curva ROC si se pudo calcular
-            model = models[name]
-            if hasattr(model, "predict_proba"):
-                y_proba = model.predict_proba(X_test)[:, 1]
-                fpr, tpr, _ = roc_curve(y_test, y_proba)
-                roc_auc = auc(fpr, tpr)
+            model = valid_models[name]
+            if hasattr(model, "predict_proba") and metrics[name]['AUC'] != "Error":
+                try:
+                    y_proba = model.predict_proba(X_test)[:, 1]
+                    fpr, tpr, _ = roc_curve(y_test, y_proba)
+                    roc_auc = auc(fpr, tpr)
 
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(
-                    x=fpr, y=tpr,
-                    mode='lines',
-                    name=f'ROC (AUC = {roc_auc:.3f})',
-                    line=dict(color='#1DB954', width=3)
-                ))
-                fig.add_trace(go.Scatter(
-                    x=[0, 1], y=[0, 1],
-                    mode='lines',
-                    name='Random',
-                    line=dict(color='gray', dash='dash')
-                ))
-                fig.update_layout(
-                    title=f'Curva ROC - {name}',
-                    xaxis_title='Tasa de Falsos Positivos (FPR)',
-                    yaxis_title='Tasa de Verdaderos Positivos (TPR)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color='white'),
-                    legend=dict(x=0.6, y=0.1)
-                )
-                st.plotly_chart(fig, use_container_width=True)
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=fpr, y=tpr,
+                        mode='lines',
+                        name=f'ROC (AUC = {roc_auc:.3f})',
+                        line=dict(color='#1DB954', width=3)
+                    ))
+                    fig.add_trace(go.Scatter(
+                        x=[0, 1], y=[0, 1],
+                        mode='lines',
+                        name='Random',
+                        line=dict(color='gray', dash='dash')
+                    ))
+                    fig.update_layout(
+                        title=f'Curva ROC - {name}',
+                        xaxis_title='Tasa de Falsos Positivos (FPR)',
+                        yaxis_title='Tasa de Verdaderos Positivos (TPR)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white'),
+                        legend=dict(x=0.6, y=0.1)
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error generando curva ROC: {e}")
             else:
                 st.info("Este modelo no soporta probabilidades, no se puede generar curva ROC.")
 

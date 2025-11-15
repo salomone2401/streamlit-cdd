@@ -1,18 +1,18 @@
 # --- Core ---
 streamlit==1.39.0
 python-dateutil==2.9.0.post0
-pandas==2.2.3
-numpy==1.26.4
-scikit-learn==1.5.2
+pandas>=2.2.3
+numpy>=1.26.4
+scikit-learn>=1.5.2
 joblib==1.4.2
 
 # --- ML / modelos ---
-xgboost==2.1.2          # ✅ compatible con 3.12
+xgboost==2.1.2          # ✅ compatible con 3.13
 shap==0.45.0            # ✅ estable con XGBoost>=2.1
-scipy==1.11.4
+scipy>=1.13.0           # ✅ compatible con Python 3.13, has pre-built wheels
 
 # --- Visualización ---
-altair==5.4.1
+altair<5.4.0
 plotly==5.24.1
 matplotlib==3.9.2
 

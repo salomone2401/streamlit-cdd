@@ -28,12 +28,7 @@ warnings.filterwarnings("ignore")
 with open("utils/style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# --- Debug temporal para Streamlit Cloud ---
-try:
-    files = os.listdir("models")
-except Exception as e:
-    st.error(f"No se pudo listar la carpeta models: {e}")
-# -------------------------------------------
+# Modelos se cargan desde HuggingFace, no desde carpeta local
 
 model_utils.load_all()  
 
