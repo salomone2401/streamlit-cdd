@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import sys
 import warnings
+import traceback, sys, time
 
 st.set_page_config(
     page_title="Proyecto Popularidad",
@@ -28,18 +29,24 @@ warnings.filterwarnings("ignore")
 with open("utils/style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Modelos se cargan desde HuggingFace, no desde carpeta local
+# ===========================
+# Load Models Only Once
+# ===========================
 
-model_utils.load_all()  
+if "models_loaded" not in st.session_state:
+    with st.spinner("Cargando modelos por única vez..."):
+        model_utils.load_all()
+        st.session_state["models"] = model_utils.get_models()
+        st.session_state["scaler"], st.session_state["feature_names"] = model_utils.get_scaler_and_features()
+        st.session_state["X_train"], st.session_state["y_train"] = model_utils.get_training_data()
+        st.session_state["models_loaded"] = True
 
-models_dict = model_utils.get_models()
-scaler, feature_names = model_utils.get_scaler_and_features()
-X_train, y_train = model_utils.get_training_data()
-import traceback
+models_dict = st.session_state["models"]
+scaler = st.session_state["scaler"]
+feature_names = st.session_state["feature_names"]
+X_train = st.session_state["X_train"]
+y_train = st.session_state["y_train"]
 
-import traceback
-
-import traceback, sys, time
 
 def safe_render(func, name="Sección"):
     start = time.time()
