@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as _np
-from huggingface_hub import InferenceClient
-
 
 if not hasattr(_np, "obj2sctype"):
     def _obj2sctype(x):
@@ -94,89 +92,86 @@ def render(models, scaler, feature_names, X_train):
         except Exception as e:
             st.error(f"Error durante la predicción: {e}")
 
+
 def render_prediction(model, X_input, scaler, X_train):
     import shap
-    import google.generativeai as genai
 
-
-    # --- Predicción ---
     X_prepared = scaler.transform(X_input)
     pred_proba = float(model.predict_proba(X_prepared)[0][1])
 
+    # Mostrar resultado principal
     st.write(f"🎵 Probabilidad de popularidad: **{pred_proba:.2f}**")
-    st.success("✅ ¡Tu canción probablemente será POPULAR!") if pred_proba >= 0.5 \
-        else st.warning("⚠️ Tu canción probablemente NO será popular")
 
-    st.subheader("🧩 Explicación de la predicción (IA)")
+    if pred_proba >= 0.5:
+        st.success("✅ ¡Tu canción probablemente será POPULAR!")
+    else:
+        st.warning("⚠️ Tu canción probablemente NO será popular")
+
+    st.subheader("🧩 Explicación de la predicción (SHAP)")
 
     try:
         X_train_scaled = scaler.transform(X_train)
+        
+        shap_values_flat = None
 
-        # ========== SHAP ==========
         if isinstance(model, (RandomForestClassifier, XGBClassifier)):
-            explainer = shap.TreeExplainer(model)
+            explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
             shap_values = explainer.shap_values(X_prepared)
 
+            # Manejo de formas de SHAP
             if isinstance(shap_values, list):
-                if len(shap_values) == 2:
-                    shap_values = shap_values[1]
-                else:
-                    shap_values = shap_values[0]
-            # Ahora shap_values tiene el shape correcto: (1, n_features)
+                shap_values = shap_values[1] # Clase positiva
+            if shap_values.ndim == 3:
+                shap_values = shap_values[:, :, 1]
+            
             shap_values_flat = shap_values.reshape(1, -1)
 
-            if isinstance(shap_values, list):
-                shap_values = shap_values[1]
-            shap_values_flat = shap_values.reshape(1, -1)
-
+        # CASO 2: Modelos Lineales
         elif isinstance(model, LogisticRegression):
-            background = shap.sample(X_train_scaled, 100)
+            
+            # Usamos un resumen de X_train (p.ej. 100 muestras) como fondo
+            background = shap.sample(X_train_scaled, 100) 
+            
             explainer = shap.LinearExplainer(model, background)
             shap_values = explainer.shap_values(X_prepared)
+            
             shap_values_flat = shap_values.reshape(1, -1)
+        
+        else:
+            st.warning(f"Tipo de modelo {type(model).__name__} aún no soportado por SHAP en esta app.")
+            return
 
         effects = pd.Series(shap_values_flat[0], index=X_input.columns)
-        top = effects.abs().sort_values(ascending=False).head(6)
+        top_effects = effects.abs().sort_values(ascending=False).head(6)
 
-        # --- Plot SHAP como antes ---
         fig, ax = plt.subplots(figsize=(6, 4))
-        top.sort_values().plot(kind="barh", ax=ax)
+        top_effects.sort_values().plot(kind="barh", ax=ax)
         ax.set_title("Impacto SHAP en la predicción")
+        ax.set_xlabel("Contribución al resultado")
         st.pyplot(fig)
 
-        # ========== ✨ Explicación con Gemini ✨ ==========
-        st.markdown("### 🧠 Explicación generada por IA")
-        explicacion_ia = explicar_con_hf(top.to_dict(), pred_proba)
-        st.write(explicacion_ia)
+        st.markdown("### 📝 Explicación textual")
+
+        for feat in top_effects.index:
+            val = X_input.iloc[0][feat]
+            eff = effects[feat]
+
+            direction = "aumentó" if eff > 0 else "redujo"
+
+            if "genre_" in feat and val == 1:
+                st.markdown(f"- El género **{feat.replace('genre_', '')}** {direction} la probabilidad.")
+            elif feat in ["danceability", "energy", "valence"]:
+                st.markdown(f"- La **{feat}** (= {val:.2f}) {direction} la probabilidad.")
+            elif feat == "acousticness":
+                st.markdown(f"- La **acousticness** (= {val:.2f}) {direction} la probabilidad.")
+            elif feat == "tempo":
+                st.markdown(f"- El **tempo** (= {val:.1f} BPM) {direction} la probabilidad.")
+            elif feat == "duration_ms":
+                minutos = val / 60000
+                st.markdown(f"- La **duración** (= {minutos:.1f} min) {direction} la probabilidad.")
+            else:
+                st.markdown(f"- **{feat}** (= {val}) {direction} la probabilidad.")
 
     except Exception as e:
         st.error(f"No se pudo generar explicación SHAP: {e}")
-        st.info("Ocurrió un error al calcular los valores SHAP.")
-
-
-def explicar_con_hf(top_features, pred_proba):
-    client = InferenceClient(
-        model="google/gemma-2b-it", 
-        token=st.secrets["HF_TOKEN"]
-    )
-
-    prompt = f"""
-    Explicá de forma simple el resultado de un modelo que predice la popularidad
-    de una canción.
-
-    Probabilidad estimada: {pred_proba:.2f}
-
-    Estas son las características que más influyeron:
-    {top_features}
-
-    Explicalo en lenguaje natural, sin tecnicismos,
-    como si se lo explicaras a una persona común.
-    """
-
-    respuesta = client.text_generation(
-        prompt,
-        max_new_tokens=256,
-        temperature=0.4
-    )
-
-    return respuesta
+        st.info("Ocurrió un error al calcular los valores SHAP para este modelo específico.")
