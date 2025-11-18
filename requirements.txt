@@ -17,3 +17,5 @@ altair<5.4.0
 tqdm==4.67.1
 requests==2.32.3
 python-dateutil==2.9.0.post0
+
+huggingface_hub
