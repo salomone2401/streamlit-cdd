@@ -1,15 +1,21 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import numpy as _np
+
+if not hasattr(_np, "obj2sctype"):
+    def _obj2sctype(x):
+        return _np.dtype(x).type
+    _np.obj2sctype = _obj2sctype
+
+
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LogisticRegression  # <--- Necesario para 'isinstance'
-from xgboost import XGBClassifier                   # <--- Necesario para 'isinstance'
-from sklearn.ensemble import RandomForestClassifier # <--- Necesario para 'isinstance'
+from sklearn.linear_model import LogisticRegression  
+from xgboost import XGBClassifier                   
+from sklearn.ensemble import RandomForestClassifier 
 import warnings
 warnings.filterwarnings("ignore")
 
 
-# 1. ACEPTA X_train EN LA FIRMA DE 'render'
 def render(models, scaler, feature_names, X_train):
     st.markdown("""
     <div class="models-header">
@@ -20,9 +26,7 @@ def render(models, scaler, feature_names, X_train):
 
     modelo_nombre = st.selectbox("🧠 Selecciona el modelo", list(models.keys()))
     model = models[modelo_nombre]
- 
-    # ... (todo tu código de sliders y selectbox no cambia) ...
-    
+     
     st.subheader("🎛️ Características numéricas")
     vals = {}
     vals['danceability'] = st.slider("Danceability", 0.0, 1.0, 0.645)
@@ -36,9 +40,6 @@ def render(models, scaler, feature_names, X_train):
     vals['tempo'] = st.slider("Tempo (BPM)", 0.0, 250.0, 96.963)
     vals['duration_ms'] = st.number_input("Duración (ms)", 30000, 600000, 140760)
 
-    # -------------------------
-    # Entradas categóricas
-    # -------------------------
     st.subheader("🎵 Características categóricas")
     genre_features = [
         'genre_A Capella', 'genre_Alternative', 'genre_Anime', 'genre_Blues', 'genre_Children’s Music',
@@ -87,19 +88,14 @@ def render(models, scaler, feature_names, X_train):
             if "popularity" in X_input.columns:
                 X_input = X_input.drop(columns=["popularity"])
 
-            # 2. PASA X_train A 'render_prediction'
             render_prediction(model, X_input, scaler, X_train)
         except Exception as e:
             st.error(f"Error durante la predicción: {e}")
 
 
-# 3. ACEPTA X_train EN LA FIRMA DE 'render_prediction'
 def render_prediction(model, X_input, scaler, X_train):
     import shap
 
-    # -----------------------------
-    # 1. Preparar input
-    # -----------------------------
     X_prepared = scaler.transform(X_input)
     pred_proba = float(model.predict_proba(X_prepared)[0][1])
 
@@ -114,17 +110,10 @@ def render_prediction(model, X_input, scaler, X_train):
     st.subheader("🧩 Explicación de la predicción (SHAP)")
 
     try:
-        # Preparamos los datos de fondo (escalados)
         X_train_scaled = scaler.transform(X_train)
         
-        # Valor SHAP final (plano)
         shap_values_flat = None
 
-        # -----------------------------------
-        # 4. LÓGICA DE SELECCIÓN DE EXPLAINER
-        # -----------------------------------
-        
-        # CASO 1: Modelos de Árbol
         if isinstance(model, (RandomForestClassifier, XGBClassifier)):
             explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
             shap_values = explainer.shap_values(X_prepared)
@@ -152,24 +141,15 @@ def render_prediction(model, X_input, scaler, X_train):
             st.warning(f"Tipo de modelo {type(model).__name__} aún no soportado por SHAP en esta app.")
             return
 
-        # -----------------------------------
-        # Top features
-        # -----------------------------------
         effects = pd.Series(shap_values_flat[0], index=X_input.columns)
         top_effects = effects.abs().sort_values(ascending=False).head(6)
 
-        # -----------------------------------
-        # Gráfico SHAP
-        # -----------------------------------
         fig, ax = plt.subplots(figsize=(6, 4))
         top_effects.sort_values().plot(kind="barh", ax=ax)
         ax.set_title("Impacto SHAP en la predicción")
         ax.set_xlabel("Contribución al resultado")
         st.pyplot(fig)
 
-        # -----------------------------------
-        # Explicación textual
-        # -----------------------------------
         st.markdown("### 📝 Explicación textual")
 
         for feat in top_effects.index:
@@ -178,7 +158,6 @@ def render_prediction(model, X_input, scaler, X_train):
 
             direction = "aumentó" if eff > 0 else "redujo"
 
-            # Explicaciones semánticas especiales
             if "genre_" in feat and val == 1:
                 st.markdown(f"- El género **{feat.replace('genre_', '')}** {direction} la probabilidad.")
             elif feat in ["danceability", "energy", "valence"]:
@@ -195,5 +174,4 @@ def render_prediction(model, X_input, scaler, X_train):
 
     except Exception as e:
         st.error(f"No se pudo generar explicación SHAP: {e}")
-        # 5. MENSAJE DE ERROR CORREGIDO
         st.info("Ocurrió un error al calcular los valores SHAP para este modelo específico.")

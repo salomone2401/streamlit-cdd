@@ -116,7 +116,12 @@ def render(models, X_train, y_train):
     st.plotly_chart(fig_comp, use_container_width=True)
 
 def safe_predict_proba(model, X):
-    """Devuelve predicciones tipo probabilidad si el modelo las soporta."""
+    """
+    Devuelve probabilidades de clase positiva para cualquier modelo.
+    - sklearn: usa predict_proba()
+    - XGBoost: usa predict(), que ya devuelve probabilidades
+    """
+    # MODELOS SKLEARN
     if hasattr(model, "predict_proba"):
         try:
             proba = model.predict_proba(X)
@@ -125,12 +130,13 @@ def safe_predict_proba(model, X):
         except Exception:
             pass
 
-    # XGBoost suele tener predict() como probabilidad ya escalada
+    # XGBOOST (predict devuelve probas directamente)
     try:
         raw = model.predict(X)
-        # Si son probabilidades, están entre 0 y 1
-        if raw.ndim == 1 and raw.min() >= 0 and raw.max() <= 1:
-            return raw
+        if raw.ndim == 1:
+            # Son probabilidades si están entre 0 y 1
+            if raw.min() >= 0 and raw.max() <= 1:
+                return raw
     except:
         pass
 
