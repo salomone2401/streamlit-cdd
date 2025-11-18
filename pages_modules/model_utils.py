@@ -12,9 +12,6 @@ warnings.filterwarnings("ignore")
 if "HF_TOKEN" in st.secrets:
     login(st.secrets["HF_TOKEN"])
 
-# ==============================
-# 📌 CONFIGURACIÓN HF
-# ==============================
 HF_REPO = "gilmagali14/spotify-popularity-models"
 
 MODEL_1 = MODEL_2 = MODEL_3 = None
@@ -105,38 +102,7 @@ def load_all():
     # Diagnóstico de carga
     loaded_models = sum([1 for m in [MODEL_1, MODEL_2, MODEL_3] if m is not None])
     loaded_components = sum([1 for c in [scaler, feature_names, X_train, y_train] if c is not None])
-    
-    if loaded_models > 0 or loaded_components > 0:
-        st.success(f"✅ Carga completada: {loaded_models}/3 modelos, {loaded_components}/4 componentes")
-        st.info(f"📁 Modelos desde HuggingFace, datos desde archivos locales")
-    else:
-        st.error("❌ No se pudo cargar ningún modelo o componente")
         
-    # Mostrar detalles de carga
-    with st.expander("🔍 Detalles de carga"):
-        st.write("**Modelos (desde HuggingFace):**")
-        st.write(f"- Logistic Regression: {'✅' if MODEL_1 else '❌'}")
-        st.write(f"- XGBoost: {'✅' if MODEL_2 else '❌'}")
-        st.write(f"- Random Forest: {'✅' if MODEL_3 else '❌'}")
-        
-        st.write("**Componentes (desde HuggingFace):**")
-        st.write(f"- Scaler: {'✅' if scaler else '❌'}")
-        st.write(f"- Feature Names: {'✅' if feature_names else '❌'}")
-        
-        st.write("**Datos (desde archivos locales):**")
-        st.write(f"- X_train: {'✅' if X_train is not None else '❌'}")
-        st.write(f"- y_train: {'✅' if y_train is not None else '❌'}")
-        
-        if X_train is not None:
-            st.write(f"- Forma de X_train: {X_train.shape}")
-        if y_train is not None:
-            st.write(f"- Forma de y_train: {y_train.shape}")
-        
-
-
-# ==============================
-# 📌 GETTERS
-# ==============================
 def get_models():
     return {
         "Logistic Regression": MODEL_1,

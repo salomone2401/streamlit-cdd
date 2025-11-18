@@ -42,10 +42,7 @@ def render(models, X_train, y_train):
     for name, model in valid_models.items():
         try:
             y_pred = model.predict(X_train)
-            if hasattr(model, "predict_proba"):
-                y_proba = model.predict_proba(X_train)[:, 1]
-            else:
-                y_proba = None
+            y_proba = safe_predict_proba(model, X_train)
 
             # Calcular curva ROC si hay probabilidades
             if y_proba is not None:
@@ -117,3 +114,24 @@ def render(models, X_train, y_train):
         color='Modelo'
     )
     st.plotly_chart(fig_comp, use_container_width=True)
+
+def safe_predict_proba(model, X):
+    """Devuelve predicciones tipo probabilidad si el modelo las soporta."""
+    if hasattr(model, "predict_proba"):
+        try:
+            proba = model.predict_proba(X)
+            if proba.ndim == 2 and proba.shape[1] >= 2:
+                return proba[:, 1]
+        except Exception:
+            pass
+
+    # XGBoost suele tener predict() como probabilidad ya escalada
+    try:
+        raw = model.predict(X)
+        # Si son probabilidades, están entre 0 y 1
+        if raw.ndim == 1 and raw.min() >= 0 and raw.max() <= 1:
+            return raw
+    except:
+        pass
+
+    return None

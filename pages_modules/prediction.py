@@ -2,16 +2,15 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LogisticRegression
-from xgboost import XGBClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression  # <--- Necesario para 'isinstance'
+from xgboost import XGBClassifier                   # <--- Necesario para 'isinstance'
+from sklearn.ensemble import RandomForestClassifier # <--- Necesario para 'isinstance'
 import warnings
 warnings.filterwarnings("ignore")
 
-# =====================================================
-#   FUNCIÓN PRINCIPAL DE PREDICCIÓN
-# =====================================================
-def render(models, scaler, feature_names):
+
+# 1. ACEPTA X_train EN LA FIRMA DE 'render'
+def render(models, scaler, feature_names, X_train):
     st.markdown("""
     <div class="models-header">
         <h2 style="color:#1DB954;">Predicción de Popularidad</h2>
@@ -22,9 +21,8 @@ def render(models, scaler, feature_names):
     modelo_nombre = st.selectbox("🧠 Selecciona el modelo", list(models.keys()))
     model = models[modelo_nombre]
  
-    # -------------------------
-    # Entradas numéricas
-    # -------------------------
+    # ... (todo tu código de sliders y selectbox no cambia) ...
+    
     st.subheader("🎛️ Características numéricas")
     vals = {}
     vals['danceability'] = st.slider("Danceability", 0.0, 1.0, 0.645)
@@ -64,7 +62,6 @@ def render(models, scaler, feature_names):
     selected_mode = st.selectbox("Modo", ["Major", "Minor"])
     selected_time = st.selectbox("Compás (Time Signature)", [t.replace("time_signature_", "") for t in time_signature_features])
 
-    # Crear input del usuario
     user_input = {}
     user_input.update(vals)
     for feature in genre_features + key_features + mode_features + time_signature_features:
@@ -90,11 +87,14 @@ def render(models, scaler, feature_names):
             if "popularity" in X_input.columns:
                 X_input = X_input.drop(columns=["popularity"])
 
-            render_prediction(model, X_input, scaler)
+            # 2. PASA X_train A 'render_prediction'
+            render_prediction(model, X_input, scaler, X_train)
         except Exception as e:
             st.error(f"Error durante la predicción: {e}")
 
-def render_prediction(model, X_input, scaler):
+
+# 3. ACEPTA X_train EN LA FIRMA DE 'render_prediction'
+def render_prediction(model, X_input, scaler, X_train):
     import shap
 
     # -----------------------------
@@ -113,42 +113,49 @@ def render_prediction(model, X_input, scaler):
 
     st.subheader("🧩 Explicación de la predicción (SHAP)")
 
-      # -----------------------------------
-    # 2. Explicación SHAP para RandomForest
-    # -----------------------------------
     try:
-        import shap
-        import numpy as np
-
-        # Creamos background artificial (50 muestras duplicadas)
-        background = X_prepared[:50] if len(X_prepared) >= 50 else np.tile(X_prepared, (50, 1))
-
-        explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
-        shap_values = explainer.shap_values(X_prepared)
-
-        # -----------------------------------
-        # MANEJO DE FORMAS DE SHAP
-        # -----------------------------------
-        # shap_values puede ser:
-        # 1) lista para cada clase
-        # 2) matriz (1, n_features)
-        # 3) matriz (1, n_features, 2)
+        # Preparamos los datos de fondo (escalados)
+        X_train_scaled = scaler.transform(X_train)
         
-        # Caso 1: lista -> elegimos la clase positiva
-        if isinstance(shap_values, list):
-            shap_values = shap_values[1]
+        # Valor SHAP final (plano)
+        shap_values_flat = None
 
-        # Si shap_values es 3D (1, features, 2) -> quedarnos con la clase 1
-        if shap_values.ndim == 3:
-            shap_values = shap_values[:, :, 1]
+        # -----------------------------------
+        # 4. LÓGICA DE SELECCIÓN DE EXPLAINER
+        # -----------------------------------
+        
+        # CASO 1: Modelos de Árbol
+        if isinstance(model, (RandomForestClassifier, XGBClassifier)):
+            explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
+            shap_values = explainer.shap_values(X_prepared)
 
-        # Ahora debe quedar como (1, n_features)
-        shap_values = shap_values.reshape(1, -1)
+            # Manejo de formas de SHAP
+            if isinstance(shap_values, list):
+                shap_values = shap_values[1] # Clase positiva
+            if shap_values.ndim == 3:
+                shap_values = shap_values[:, :, 1]
+            
+            shap_values_flat = shap_values.reshape(1, -1)
+
+        # CASO 2: Modelos Lineales
+        elif isinstance(model, LogisticRegression):
+            
+            # Usamos un resumen de X_train (p.ej. 100 muestras) como fondo
+            background = shap.sample(X_train_scaled, 100) 
+            
+            explainer = shap.LinearExplainer(model, background)
+            shap_values = explainer.shap_values(X_prepared)
+            
+            shap_values_flat = shap_values.reshape(1, -1)
+        
+        else:
+            st.warning(f"Tipo de modelo {type(model).__name__} aún no soportado por SHAP en esta app.")
+            return
 
         # -----------------------------------
         # Top features
         # -----------------------------------
-        effects = pd.Series(shap_values[0], index=X_input.columns)
+        effects = pd.Series(shap_values_flat[0], index=X_input.columns)
         top_effects = effects.abs().sort_values(ascending=False).head(6)
 
         # -----------------------------------
@@ -188,4 +195,5 @@ def render_prediction(model, X_input, scaler):
 
     except Exception as e:
         st.error(f"No se pudo generar explicación SHAP: {e}")
-        st.info("Esto pasa por la forma en que SHAP interpreta RandomForest; ya está corregido.")
+        # 5. MENSAJE DE ERROR CORREGIDO
+        st.info("Ocurrió un error al calcular los valores SHAP para este modelo específico.")
