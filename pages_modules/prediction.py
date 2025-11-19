@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as _np
-import numpy as np
 from pages_modules.gemini import gemini_explain
 
 import matplotlib.pyplot as plt
-import shap
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -16,39 +14,7 @@ if not hasattr(_np, "obj2sctype"):
         return _np.dtype(x).type
     _np.obj2sctype = _obj2sctype
 
-
-
-# =====================================================
-#  CARGA DE EXPLICADORES (SIN CACHE STREAMLIT)
-#  Guardados en st.session_state -> super rápido y sin errores
-# =====================================================
-def get_explainers(models, X_train_scaled):
-    explainers = {}
-
-    for name, model in models.items():
-
-        # Modelos de árbol → TreeExplainer (muy rápido)
-        if hasattr(model, "feature_importances_"):
-            explainer = shap.TreeExplainer(
-                model,
-                feature_perturbation="tree_path_dependent"
-            )
-        else:
-            # Modelos lineales / otros
-            X_small = X_train_scaled[:300]
-            masker = shap.maskers.Independent(X_small)
-            explainer = shap.Explainer(model, masker)
-
-        explainers[name] = explainer
-
-    return explainers
-
-
-
-# =====================================================
-#  UI PRINCIPAL
-# =====================================================
-def render(models, scaler, feature_names, X_train):
+def render(models, scaler, feature_names):
 
     clean_features = [f for f in feature_names if f != "popularity"]
 
@@ -75,9 +41,6 @@ def render(models, scaler, feature_names, X_train):
     vals['tempo']            = st.slider("Tempo (BPM)", 0.0, 250.0, 96.963)
     vals['duration_ms']      = st.number_input("Duración (ms)", 30000, 600000, 140760)
 
-    # -----------------------------------------
-    # INPUTS CATEGÓRICOS
-    # -----------------------------------------
     st.subheader("🎵 Características categóricas")
 
     genre_features = [
@@ -116,18 +79,14 @@ def render(models, scaler, feature_names, X_train):
     X_input = {}
     X_input.update(vals)
 
-    # Inicializar todas en 0
     for f in genre_features + key_features + mode_features + time_signature_features:
         X_input[f] = 0
 
-    # Activar las seleccionadas
     X_input[f"genre_{selected_genre}"] = 1
     X_input[f"key_{selected_key}"] = 1
     X_input[f"mode_{selected_mode}"] = 1
     X_input[f"time_signature_{selected_time}"] = 1
 
-
-    # DataFrame final
     X_input = pd.DataFrame([X_input])
 
     for col in clean_features:
@@ -138,34 +97,14 @@ def render(models, scaler, feature_names, X_train):
 
     st.markdown("---")
 
-
-    # =====================================================
-    # BOTÓN DE PREDICCIÓN
-    # =====================================================
     if st.button("🎯 Predecir popularidad"):
 
-        st.session_state.pop("friendly_explanation", None)
-
-        # Preparamos datos de entrenamiento
-        X_train_scaled = scaler.transform(X_train)
-
-        # Inicializamos explicadores una sola vez
-        if "explainers" not in st.session_state:
-            st.session_state.explainers = get_explainers(models, X_train_scaled)
-
-        explainers = st.session_state.explainers
-
         render_prediction(
-            model, modelo_nombre, explainers,
-            X_input, scaler, X_train_scaled
+            model, modelo_nombre,
+            X_input, scaler
         )
 
-
-
-# =====================================================
-#   PREDICCIÓN + SHAP ULTRARRÁPIDO
-# =====================================================
-def render_prediction(model, modelo_nombre, explainers, X_input, scaler, X_train_scaled):
+def render_prediction(model, modelo_nombre, X_input, scaler):
 
     if "popularity" in X_input.columns:
         X_input = X_input.drop(columns=["popularity"])
@@ -178,44 +117,17 @@ def render_prediction(model, modelo_nombre, explainers, X_input, scaler, X_train
     st.write(f"🎵 Probabilidad de popularidad: **{pred_proba:.2f}**")
     st.success("✅ ¡Tu canción será popular!") if pred_proba >= 0.5 else st.warning("⚠️ Tu canción NO será popular")
 
-    st.subheader("🧩 Explicación de la predicción (SHAP)")
+    st.subheader("📝 Explicación inteligente (Gemini)")
 
+    st.session_state.pop("friendly_explanation", None)
 
-    # ----------------------------
-    # SHAP
-    # ----------------------------
     try:
-        explainer = explainers[modelo_nombre]
-        shap_values = explainer(X_prepared, check_additivity=False)
-
-        values = shap_values.values
-
-        if values.ndim == 3:  
-            values = values[:, :, 1]  
-
-        values = values[0]
-
-        effects = pd.Series(values, index=X_input.columns)
-        top_effects = effects.abs().sort_values(ascending=False).head(6)
-
-        # ----------------------------
-        # GRÁFICO
-        # ----------------------------
-        fig, ax = plt.subplots(figsize=(3.5, 2.3))
-        top_effects.sort_values().plot(kind="barh", ax=ax, fontsize=8)
-        ax.set_title("Impacto SHAP en la predicción", fontsize=10)
-        ax.set_xlabel("Contribución al resultado", fontsize=9)
-        st.pyplot(fig, use_container_width=False)
-
-
-        st.markdown("### 📝 Explicación textual")
-
-        if "friendly_explanation" not in st.session_state:
-            st.session_state["friendly_explanation"] = gemini_explain(
-                pred_proba, top_effects, effects, X_input
-            )
+        st.session_state["friendly_explanation"] = gemini_explain(
+            pred_proba,
+            X_input
+        )
 
         st.markdown(st.session_state["friendly_explanation"])
 
     except Exception as e:
-        st.error(f"No se pudo generar explicación SHAP: {e}")
+        st.error(f"No se pudo generar explicación con Gemini: {e}")

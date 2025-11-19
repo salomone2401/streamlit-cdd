@@ -100,4 +100,4 @@ elif opcion == "Machine Learning Models":
     safe_render(lambda: machine_learning.render(models_dict, X_train, y_train), name="Machine Learning Models")
 
 elif opcion == "Predicción":
-    safe_render(lambda: prediction.render(models_dict, scaler, feature_names, X_train), name="Predicción")
+    safe_render(lambda: prediction.render(models_dict, scaler, feature_names), name="Predicción")
