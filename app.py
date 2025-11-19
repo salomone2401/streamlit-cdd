@@ -97,7 +97,21 @@ elif opcion == "EDA":
     safe_render(lambda: eda.render(), name="EDA")
 
 elif opcion == "Machine Learning Models":
-    safe_render(lambda: machine_learning.render(models_dict, X_train, y_train), name="Machine Learning Models")
+    # Agrega checkbox para decidir qué cantidad de datos usar
+    usar_todo = st.sidebar.checkbox("Mostrar métricas con TODOS los datos (más lento/memoria)", value=False)
+    X_train_full, y_train_full = st.session_state["X_train"], st.session_state["y_train"]
+    if usar_todo:
+        X_show, y_show = X_train_full, y_train_full
+    else:
+        max_sample = 1000
+        import pandas as pd
+        # .sample sólo si es DataFrame grande
+        if isinstance(X_train_full, pd.DataFrame) and len(X_train_full) > max_sample:
+            X_show = X_train_full.sample(n=max_sample, random_state=42)
+            y_show = y_train_full.loc[X_show.index] if hasattr(y_train_full, 'loc') else y_train_full[X_show.index]
+        else:
+            X_show, y_show = X_train_full, y_train_full
+    safe_render(lambda: machine_learning.render(models_dict, X_show, y_show), name="Machine Learning Models")
 
 elif opcion == "Predicción":
     safe_render(lambda: prediction.render(models_dict, scaler, feature_names), name="Predicción")

@@ -19,7 +19,7 @@ def render(models, scaler, feature_names):
     clean_features = [f for f in feature_names if f != "popularity"]
 
     st.markdown("""
-    <div class="models-header">
+    <div>
         <h2 style="color:#1DB954;">Predicción de Popularidad</h2>
         <p style="color:#b3b3b3;">Estima la popularidad de una canción según sus características.</p>
     </div>
@@ -27,7 +27,11 @@ def render(models, scaler, feature_names):
 
     modelo_nombre = "Random Forest"
     model = models["Random Forest"]
-
+    st.markdown("""
+        <div class="models-header">
+            <h5> Modelo seleccionado: Random Forest </h5>
+        </div>
+        """, unsafe_allow_html=True)
     st.subheader("🎛️ Características numéricas")
     vals = {}
     vals['danceability']     = st.slider("Danceability", 0.0, 1.0, 0.645)
@@ -117,7 +121,7 @@ def render_prediction(model, modelo_nombre, X_input, scaler):
     st.write(f"🎵 Probabilidad de popularidad: **{pred_proba:.2f}**")
     st.success("✅ ¡Tu canción será popular!") if pred_proba >= 0.5 else st.warning("⚠️ Tu canción NO será popular")
 
-    st.subheader("📝 Explicación inteligente (Gemini)")
+    st.subheader("📝 Explicación")
 
     st.session_state.pop("friendly_explanation", None)
 
