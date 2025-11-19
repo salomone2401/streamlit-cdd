@@ -3,6 +3,11 @@ import os
 import sys
 import warnings
 import traceback, sys, time
+try:
+    import psutil
+    st.sidebar.info(f"Uso de RAM: {psutil.Process(os.getpid()).memory_info().rss // (1024*1024)} MB")
+except Exception as e:
+    st.sidebar.warning(f"No se pudo calcular RAM: {e}")
 
 st.set_page_config(
     page_title="Proyecto Popularidad",
@@ -34,18 +39,18 @@ with open("utils/style.css") as f:
 # ===========================
 
 if "models_loaded" not in st.session_state:
-    with st.spinner("Cargando modelos por única vez..."):
-        model_utils.load_all()
-        st.session_state["models"] = model_utils.get_models()
+    with st.spinner("Cargando modelo Random Forest por única vez..."):
+        from pages_modules import model_utils
+        model_utils.load_all()  # cargar todos, pero extraemos solo RF después
+        # Cargamos SOLO el modelo Random Forest
+        all_models = model_utils.get_models()
+        st.session_state["rf_model"] = all_models["Random Forest"]
         st.session_state["scaler"], st.session_state["feature_names"] = model_utils.get_scaler_and_features()
-        st.session_state["X_train"], st.session_state["y_train"] = model_utils.get_training_data()
         st.session_state["models_loaded"] = True
 
-models_dict = st.session_state["models"]
+rf_model = st.session_state["rf_model"]
 scaler = st.session_state["scaler"]
 feature_names = st.session_state["feature_names"]
-X_train = st.session_state["X_train"]
-y_train = st.session_state["y_train"]
 
 
 def safe_render(func, name="Sección"):
@@ -97,21 +102,26 @@ elif opcion == "EDA":
     safe_render(lambda: eda.render(), name="EDA")
 
 elif opcion == "Machine Learning Models":
-    # Agrega checkbox para decidir qué cantidad de datos usar
+    import pandas as pd, gc
+    from pages_modules import model_utils
     usar_todo = st.sidebar.checkbox("Mostrar métricas con TODOS los datos (más lento/memoria)", value=False)
-    X_train_full, y_train_full = st.session_state["X_train"], st.session_state["y_train"]
+    X_full, y_full = model_utils.get_training_data()
     if usar_todo:
-        X_show, y_show = X_train_full, y_train_full
+        X_show, y_show = X_full, y_full
     else:
         max_sample = 1000
-        import pandas as pd
-        # .sample sólo si es DataFrame grande
-        if isinstance(X_train_full, pd.DataFrame) and len(X_train_full) > max_sample:
-            X_show = X_train_full.sample(n=max_sample, random_state=42)
-            y_show = y_train_full.loc[X_show.index] if hasattr(y_train_full, 'loc') else y_train_full[X_show.index]
+        if isinstance(X_full, pd.DataFrame) and len(X_full) > max_sample:
+            X_show = X_full.sample(n=max_sample, random_state=42)
+            y_show = y_full.loc[X_show.index] if hasattr(y_full, 'loc') else y_full[X_show.index]
         else:
-            X_show, y_show = X_train_full, y_train_full
-    safe_render(lambda: machine_learning.render(models_dict, X_show, y_show), name="Machine Learning Models")
+            X_show, y_show = X_full, y_full
+    # Pasar solo el modelo Random Forest, scaler y features
+    from pages_modules import machine_learning
+    safe_render(lambda: machine_learning.render({'Random Forest': rf_model}, X_show, y_show), name="Machine Learning Models")
+    del X_full, y_full, X_show, y_show
+    gc.collect()
 
 elif opcion == "Predicción":
-    safe_render(lambda: prediction.render(models_dict, scaler, feature_names), name="Predicción")
+    from pages_modules import prediction
+    # Pasar solo modelo Random Forest para predicción
+    safe_render(lambda: prediction.render({'Random Forest': rf_model}, scaler, feature_names), name="Predicción")

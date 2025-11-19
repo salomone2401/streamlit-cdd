@@ -4,6 +4,7 @@ import pandas as pd
 import altair as alt
 import os
 import numpy as np
+import gc
 
 # -------------------------
 # CONFIG
@@ -32,18 +33,16 @@ def render_header():
 # -------------------------
 # DATA LOADING & CACHING
 # -------------------------
-@st.cache_data(show_spinner=False)
-def load_data(path="data/data.csv"):
+def load_data(path="data/data.csv", max_rows=DEFAULT_MAX_ROWS):
     """Carga el CSV una sola vez por sesión/entrada de datos."""
     if not os.path.exists(path):
         return pd.DataFrame()
     # low_memory=False para evitar avisos y lecturas parciales en datasets grandes
-    df = pd.read_csv(path, low_memory=False)
+    df = pd.read_csv(path, nrows=max_rows)
     return df
 
 
-@st.cache_data
-def sample_df_for_viz(frames_key: str, df: pd.DataFrame, max_rows: int = DEFAULT_MAX_ROWS):
+def sample_df_for_viz(df: pd.DataFrame, max_rows: int = DEFAULT_MAX_ROWS):
     """
     Devuelve un sample reproducible (random_state fijo).
     `frames_key` se usa para invalidar el cache si cambia la fuente/params.
@@ -58,7 +57,7 @@ def sample_df_for_viz(frames_key: str, df: pd.DataFrame, max_rows: int = DEFAULT
 # -------------------------
 # CACHED CHART PREPARATIONS
 # -------------------------
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def prepare_histogram(df: pd.DataFrame, variable: str, bins: int):
     """Prepara DataFrame agregado para histograma (bins + counts)."""
     if df is None or df.empty or variable not in df.columns:
@@ -240,10 +239,23 @@ def build_heatmap(heat_df, x_var, y_var, width=550, height=320):
 def render():
     render_header()
 
-    df = load_data()
+    max_rows = st.sidebar.slider("Máx filas para visualización (sampling)", 1000, 20000, DEFAULT_MAX_ROWS, step=500)
+    path = "data/data.csv"
+    if not os.path.exists(path):
+        st.error("❌ No se encontraron datos en data/data.csv. Asegurate de tener el archivo y el path correctos.")
+        return
+    # Cargar sólo la muestra limitada
+    try:
+        total_rows = sum(1 for _ in open(path)) - 1  # descontar header
+    except Exception:
+        total_rows = 0
+    df = pd.read_csv(path, nrows=max_rows)
+    st.info(f"➡️ Mostrando solo las primeras {len(df)}/{total_rows} filas (límite visualización)")
+    if total_rows > max_rows:
+        st.warning(f"⚠️ El archivo de datos tiene {total_rows} filas, pero por memoria solo se usan {max_rows}. Usa filtros para otro análisis.")
 
     if df.empty:
-        st.error("❌ No se encontraron datos en data/data.csv. Asegurate de tener el archivo y el path correctos.")
+        st.error("❌ No hay registros para analizar.")
         return
 
     # Variables numéricas y categóricas detectadas
@@ -263,7 +275,6 @@ def render():
 
     # Sidebar options (caché del sample para toda la sesión para evitar recalcular)
     st.sidebar.subheader("Ajustes de visualización")
-    max_rows = st.sidebar.slider("Máx filas para visualización (sampling)", 1000, 20000, DEFAULT_MAX_ROWS, step=500)
     show_points_in_heatmap = st.sidebar.checkbox("Superponer puntos en heatmap (limitado)", value=False)
 
     # Guardar sample en session_state para usar en las diferentes pestañas sin recalcular
@@ -271,7 +282,7 @@ def render():
     if "df_samples" not in st.session_state:
         st.session_state["df_samples"] = {}
     if frames_key not in st.session_state["df_samples"]:
-        st.session_state["df_samples"][frames_key] = sample_df_for_viz(frames_key, df, max_rows=max_rows)
+        st.session_state["df_samples"][frames_key] = sample_df_for_viz(df, max_rows=max_rows)
 
     df_vis = st.session_state["df_samples"][frames_key]
 
@@ -373,3 +384,7 @@ def render():
 
     with st.expander("👀 Vista previa de datos"):
         st.dataframe(df.head(10))
+
+    # Limpieza explícita: liberar df, llamar a garbage collector
+    del df
+    gc.collect()
