@@ -5,12 +5,10 @@ import numpy as np
 from pages_modules.gemini import gemini_explain
 
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LogisticRegression  
-from xgboost import XGBClassifier                   
-from sklearn.ensemble import RandomForestClassifier
 import shap
 import warnings
 warnings.filterwarnings("ignore")
+
 
 # Fix NumPy
 if not hasattr(_np, "obj2sctype"):
@@ -21,24 +19,24 @@ if not hasattr(_np, "obj2sctype"):
 
 
 # =====================================================
-#  CARGA DE EXPLICADORES CACHEADOS
+#  CARGA DE EXPLICADORES (SIN CACHE STREAMLIT)
+#  Guardados en st.session_state -> super rápido y sin errores
 # =====================================================
-@st.cache_resource
-def get_explainers(_models, X_train_scaled):
+def get_explainers(models, X_train_scaled):
     explainers = {}
 
-    for name, model in _models.items():
+    for name, model in models.items():
 
-        # Modelos de árbol → TreeExplainer
+        # Modelos de árbol → TreeExplainer (muy rápido)
         if hasattr(model, "feature_importances_"):
             explainer = shap.TreeExplainer(
                 model,
                 feature_perturbation="tree_path_dependent"
             )
-
-        # Modelos lineales → Explainer + Independent Masker
         else:
-            masker = shap.maskers.Independent(X_train_scaled)
+            # Modelos lineales / otros
+            X_small = X_train_scaled[:300]
+            masker = shap.maskers.Independent(X_small)
             explainer = shap.Explainer(model, masker)
 
         explainers[name] = explainer
@@ -52,7 +50,6 @@ def get_explainers(_models, X_train_scaled):
 # =====================================================
 def render(models, scaler, feature_names, X_train):
 
-    # Quitar "popularity" si aparece
     clean_features = [f for f in feature_names if f != "popularity"]
 
     st.markdown("""
@@ -62,12 +59,9 @@ def render(models, scaler, feature_names, X_train):
     </div>
     """, unsafe_allow_html=True)
 
-    modelo_nombre = st.selectbox("🧠 Selecciona el modelo", list(models.keys()))
-    model = models[modelo_nombre]
+    modelo_nombre = "Random Forest"
+    model = models["Random Forest"]
 
-    # -----------------------------------------
-    # INPUTS NUMÉRICOS
-    # -----------------------------------------
     st.subheader("🎛️ Características numéricas")
     vals = {}
     vals['danceability']     = st.slider("Danceability", 0.0, 1.0, 0.645)
@@ -132,10 +126,10 @@ def render(models, scaler, feature_names, X_train):
     X_input[f"mode_{selected_mode}"] = 1
     X_input[f"time_signature_{selected_time}"] = 1
 
-    # Convertir a DataFrame
+
+    # DataFrame final
     X_input = pd.DataFrame([X_input])
 
-    # Asegurar columnas faltantes
     for col in clean_features:
         if col not in X_input.columns:
             X_input[col] = 0
@@ -144,6 +138,7 @@ def render(models, scaler, feature_names, X_train):
 
     st.markdown("---")
 
+
     # =====================================================
     # BOTÓN DE PREDICCIÓN
     # =====================================================
@@ -151,8 +146,14 @@ def render(models, scaler, feature_names, X_train):
 
         st.session_state.pop("friendly_explanation", None)
 
+        # Preparamos datos de entrenamiento
         X_train_scaled = scaler.transform(X_train)
-        explainers = get_explainers(models, X_train_scaled)
+
+        # Inicializamos explicadores una sola vez
+        if "explainers" not in st.session_state:
+            st.session_state.explainers = get_explainers(models, X_train_scaled)
+
+        explainers = st.session_state.explainers
 
         render_prediction(
             model, modelo_nombre, explainers,
@@ -166,13 +167,12 @@ def render(models, scaler, feature_names, X_train):
 # =====================================================
 def render_prediction(model, modelo_nombre, explainers, X_input, scaler, X_train_scaled):
 
-    # Seguridad extra
     if "popularity" in X_input.columns:
         X_input = X_input.drop(columns=["popularity"])
 
     X_prepared = scaler.transform(X_input)
 
-    # PREDICCIÓN
+    # Predicción
     pred_proba = float(model.predict_proba(X_prepared)[0][1])
 
     st.write(f"🎵 Probabilidad de popularidad: **{pred_proba:.2f}**")
@@ -180,21 +180,22 @@ def render_prediction(model, modelo_nombre, explainers, X_input, scaler, X_train
 
     st.subheader("🧩 Explicación de la predicción (SHAP)")
 
+
+    # ----------------------------
+    # SHAP
+    # ----------------------------
     try:
         explainer = explainers[modelo_nombre]
-
-        shap_values = explainer(X_prepared)
+        shap_values = explainer(X_prepared, check_additivity=False)
 
         values = shap_values.values
 
-        if values.ndim == 3:  # (1, n_features, 2)
-            values = values[:, :, 1]  # tomar clase positiva
+        if values.ndim == 3:  
+            values = values[:, :, 1]  
 
-        values = values[0]  # ahora sí es 1D
+        values = values[0]
 
         effects = pd.Series(values, index=X_input.columns)
-
-
         top_effects = effects.abs().sort_values(ascending=False).head(6)
 
         # ----------------------------
@@ -206,14 +207,13 @@ def render_prediction(model, modelo_nombre, explainers, X_input, scaler, X_train
         ax.set_xlabel("Contribución al resultado", fontsize=9)
         st.pyplot(fig, use_container_width=False)
 
-        # ----------------------------
-        # EXPLICACIÓN NATURAL (Gemini)
-        # ----------------------------
+
         st.markdown("### 📝 Explicación textual")
 
         if "friendly_explanation" not in st.session_state:
-            friendly = gemini_explain(pred_proba, top_effects, effects, X_input)
-            st.session_state["friendly_explanation"] = friendly
+            st.session_state["friendly_explanation"] = gemini_explain(
+                pred_proba, top_effects, effects, X_input
+            )
 
         st.markdown(st.session_state["friendly_explanation"])
 

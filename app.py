@@ -49,7 +49,6 @@ y_train = st.session_state["y_train"]
 
 
 def safe_render(func, name="Sección"):
-    start = time.time()
     try:
         func()
     except Exception as e:
